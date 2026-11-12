@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tekla Support Form</title>
+    <!-- โหลด LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f7f6; }
+        .form-container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
+        h2 { text-align: center; color: #00b900; }
+        label { font-weight: bold; margin-top: 10px; display: block; font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #00b900; color: white; border: none; border-radius: 4px; font-size: 16px; margin-top: 20px; cursor: pointer; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div class="form-container">
+    <h2>ติดต่อ Support</h2>
+    <form id="supportForm">
+        <label>ชื่อบริษัท (Company)</label>
+        <input type="text" id="company" required>
+
+        <label>ชื่อผู้ติดต่อ (Name)</label>
+        <input type="text" id="name" required>
+
+        <label>อีเมล (Email)</label>
+        <input type="email" id="email" required>
+
+        <label>เวอร์ชัน Tekla (Version)</label>
+        <select id="version" required>
+            <option value="" disabled selected>เลือกเวอร์ชัน...</option>
+            <option value="Tekla 2024">Tekla 2024</option>
+            <option value="Tekla 2023">Tekla 2023</option>
+            <option value="Tekla 2022">Tekla 2022</option>
+            <option value="Older">เวอร์ชันเก่ากว่า</option>
+        </select>
+
+        <label>รายละเอียดปัญหา (Issue Details)</label>
+        <textarea id="issue" rows="4" required></textarea>
+
+        <label>แนบไฟล์รูปภาพ / เอกสาร (ไม่เกิน 5MB)</label>
+        <input type="file" id="fileUpload">
+
+        <button type="submit" id="submitBtn">ส่งข้อมูล (Submit)</button>
+    </form>
+</div>
+
+<script>
+    // ----------------------------------------------------------------
+    // ⚠️ แก้ไข 2 บรรทัดนี้ให้เป็นข้อมูลของคุณ ⚠️
+    const LIFF_ID = "2012561563-OSp0QQl1"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzZg50_M-04nhtx8qhqeYNyZWkqs26p54J5e27mk9AD_hQ5Rw7UQ_gIayEyh8Iw14QE2g/exec";
+    // ----------------------------------------------------------------
+
+    // 1. เริ่มต้นการทำงานของ LIFF
+    async function initializeLiff() {
+        try {
+            await liff.init({ liffId: LIFF_ID });
+            if (!liff.isLoggedIn()) {
+                liff.login();
+            }
+        } catch (err) {
+            console.error("LIFF Initialization failed", err);
+        }
+    }
+    initializeLiff();
+
+    // 2. ฟังก์ชันแปลงไฟล์เป็น Base64
+    function getBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result.split(',')[1]); // เอาเฉพาะส่วนเนื้อหา Base64
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    // 3. จัดการเมื่อผู้ใช้กดปุ่ม Submit
+    document.getElementById('supportForm').addEventListener('submit', async function(e) {
+        e.preventDefault(); // ป้องกันการรีเฟรชหน้าเว็บ
+
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = "กำลังส่งข้อมูล... (Sending)";
+
+        try {
+            // ดึงไฟล์ที่แนบมา
+            const fileInput = document.getElementById('fileUpload').files[0];
+            let fileBase64 = "";
+            let fileName = "";
+            let fileMimeType = "";
+
+            if (fileInput) {
+                // ตรวจสอบขนาดไฟล์ (เช่น ไม่เกิน 5MB = 5 * 1024 * 1024 bytes)
+                if (fileInput.size > 5242880) {
+                    alert("ขนาดไฟล์ใหญ่เกินไป กรุณาแนบไฟล์ไม่เกิน 5MB");
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = "ส่งข้อมูล (Submit)";
+                    return;
+                }
+                fileBase64 = await getBase64(fileInput);
+                fileName = fileInput.name;
+                fileMimeType = fileInput.type;
+            }
+
+            // เตรียมข้อมูลเป็น JSON
+            const payload = {
+                company: document.getElementById('company').value,
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                version: document.getElementById('version').value,
+                issue: document.getElementById('issue').value,
+                fileName: fileName,
+                fileMimeType: fileMimeType,
+                fileBase64: fileBase64
+            };
+
+            // ส่งข้อมูลไปที่ Google Apps Script
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (result.status === "success") {
+                alert("ส่งข้อมูลสำเร็จ! เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุด");
+                liff.closeWindow(); // ปิดหน้าฟอร์ม LIFF กลับไปที่หน้าแชท LINE
+            } else {
+                alert("เกิดข้อผิดพลาด: " + result.message);
+                submitBtn.disabled = false;
+                submitBtn.innerText = "ส่งข้อมูล (Submit)";
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert("ไม่สามารถส่งข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+            submitBtn.disabled = false;
+            submitBtn.innerText = "ส่งข้อมูล (Submit)";
+        }
+    });
+</script>
+
+</body>
+</html>
