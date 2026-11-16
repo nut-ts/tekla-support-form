@@ -43,11 +43,12 @@
         <label>รายละเอียดปัญหา (Issue Details)</label>
         <textarea id="issue" rows="4" placeholder="อธิบายรายละเอียดปัญหาที่พบ..." required></textarea>
 
-        <label>แนบไฟล์รูปภาพ / เอกสาร / Zip (ไม่เกิน 10MB)</label>
-        <input type="file" id="fileUpload" accept="image/*, .pdf, .doc, .docx, .zip, .rar">
+        <!-- เพิ่ม multiple เพื่อให้เลือกได้หลายไฟล์ -->
+        <label>แนบไฟล์รูปภาพ / เอกสาร / Zip (รวมกันไม่เกิน 10MB)</label>
+        <input type="file" id="fileUpload" accept="image/*, .pdf, .doc, .docx, .zip, .rar" multiple>
         <div id="fileSizeInfo"></div>
 
-        <label>หรือ วางลิงก์ไฟล์ (กรณีไฟล์เกิน 10MB)</label>
+        <label>หรือ วางลิงก์ไฟล์ (กรณีไฟล์ใหญ่เกิน 10MB)</label>
         <input type="url" id="externalLink" placeholder="วางลิงก์ Google Drive, OneDrive...">
         <div class="hint-text">💡 หากไฟล์เกิน 10MB กรุณาฝากไว้ที่ Google Drive (เปิดสิทธิ์แชร์ลิงก์) แล้วนำลิงก์มาวางในช่องนี้</div>
 
@@ -57,7 +58,8 @@
 
 <script>
     const LIFF_ID = "2012561563-OSp0QQl1"; 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbynasAJlwo4tnTAT8KOpAqRmf9dnzV-lhwpgxiasHETP7ExaTnfqYnqnQk3YjEnii-NsA/exec";
+    // ตรวจสอบ URL ล่าสุดของ Web App และใส่ตรงนี้
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbygmjBdQPEXsExUZJVcFZBjXhoKbY4EcyD3gPmiDUeh_kp1OSZL1az0JDN_3yCf55Mkmw/exec";
     
     const MAX_FILE_SIZE = 10485760; // 10MB
 
@@ -73,17 +75,21 @@
     }
     initializeLiff();
 
+    // คำนวณขนาดรวมของทุกไฟล์ที่เลือก
     document.getElementById('fileUpload').addEventListener('change', function() {
         const fileInfo = document.getElementById('fileSizeInfo');
         if (this.files.length > 0) {
-            const fileSize = this.files[0].size;
-            const sizeInMB = (fileSize / (1024 * 1024)).toFixed(2); 
+            let totalSize = 0;
+            for (let i = 0; i < this.files.length; i++) {
+                totalSize += this.files[i].size;
+            }
+            const sizeInMB = (totalSize / (1024 * 1024)).toFixed(2); 
             
-            if (fileSize > MAX_FILE_SIZE) {
-                fileInfo.innerHTML = `❌ ขนาดไฟล์: <b>${sizeInMB} MB</b> (เกิน 10MB)<br>💡 กรุณานำไฟล์ฝากไว้ที่ <b>Google Drive</b> แล้วนำลิงก์มาวางในช่องด้านล่างแทนครับ`;
+            if (totalSize > MAX_FILE_SIZE) {
+                fileInfo.innerHTML = `❌ ขนาดรวม: <b>${sizeInMB} MB</b> (เกิน 10MB)<br>💡 กรุณานำไฟล์ฝากไว้ที่ <b>Google Drive</b> แล้วนำลิงก์มาวางในช่องด้านล่างแทนครับ`;
                 fileInfo.style.color = "red";
             } else {
-                fileInfo.innerHTML = `✅ ขนาดไฟล์: <b>${sizeInMB} MB</b> (พร้อมส่ง)`;
+                fileInfo.innerHTML = `✅ เลือก ${this.files.length} ไฟล์ | ขนาดรวม: <b>${sizeInMB} MB</b> (พร้อมส่ง)`;
                 fileInfo.style.color = "#00b900";
             }
         } else {
@@ -108,22 +114,32 @@
         submitBtn.innerText = "กำลังส่งข้อมูล... (อาจใช้เวลาสักครู่)";
 
         try {
-            const fileInput = document.getElementById('fileUpload').files[0];
-            let fileBase64 = "";
-            let fileName = "";
-            let fileMimeType = "";
+            const fileInput = document.getElementById('fileUpload').files;
+            let filesArray = [];
 
-            if (fileInput) {
-                if (fileInput.size > MAX_FILE_SIZE) {
-                    const sizeMB = (fileInput.size / (1024 * 1024)).toFixed(2);
-                    alert(`ไฟล์มีขนาด ${sizeMB} MB ซึ่งเกิน 10MB\n\nกรุณานำไฟล์ฝากไว้ที่ Google Drive (เปิดสิทธิ์แชร์ลิงก์) แล้วนำลิงก์มาวางในช่องด้านล่างแทนครับ`);
+            if (fileInput.length > 0) {
+                let totalSize = 0;
+                for (let i = 0; i < fileInput.length; i++) {
+                    totalSize += fileInput[i].size;
+                }
+
+                if (totalSize > MAX_FILE_SIZE) {
+                    const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+                    alert(`ไฟล์ทั้งหมดมีขนาดรวม ${sizeMB} MB ซึ่งเกิน 10MB\n\nกรุณานำไฟล์ฝากไว้ที่ Google Drive (เปิดสิทธิ์แชร์ลิงก์) แล้วนำลิงก์มาวางในช่องด้านล่างแทนครับ`);
                     submitBtn.disabled = false;
                     submitBtn.innerText = "ส่งข้อมูล (Submit)";
                     return;
                 }
-                fileBase64 = await getBase64(fileInput);
-                fileName = fileInput.name;
-                fileMimeType = fileInput.type || "application/octet-stream";
+
+                // วนลูปแปลงทุกไฟล์เป็น Base64
+                for (let i = 0; i < fileInput.length; i++) {
+                    const base64 = await getBase64(fileInput[i]);
+                    filesArray.push({
+                        fileName: fileInput[i].name,
+                        fileMimeType: fileInput[i].type || "application/octet-stream",
+                        fileBase64: base64
+                    });
+                }
             }
 
             const payload = {
@@ -133,9 +149,7 @@
                 version: document.getElementById('version').value,
                 issue: document.getElementById('issue').value,
                 externalLink: document.getElementById('externalLink').value.trim(),
-                fileName: fileName,
-                fileMimeType: fileMimeType,
-                fileBase64: fileBase64
+                files: filesArray // ส่งเป็น Array แทนไฟล์เดียว
             };
 
             const response = await fetch(GAS_URL, {
