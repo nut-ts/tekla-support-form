@@ -52,9 +52,9 @@
 
 <script>
     // ----------------------------------------------------------------
-    // ⚠️ แก้ไข 2 บรรทัดนี้ให้เป็นข้อมูลของคุณ ⚠️
-    const LIFF_ID = "ใส่_LIFF_ID_ของคุณ"; 
-    const GAS_URL = "ใส่_URL_WEB_APP_ของ_GOOGLE_APPS_SCRIPT";
+    // ใช้ค่าเดิมที่คุณให้มาในตอนแรก
+    const LIFF_ID = "2012561563-OSp0QQl1"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbygmjBdQPEXsExUZJVcFZBjXhoKbY4EcyD3gPmiDUeh_kp1OSZL1az0JDN_3yCf55Mkmw/exec";
     // ----------------------------------------------------------------
     
     const MAX_FILE_SIZE = 26214400; // 25MB (25 * 1024 * 1024 bytes)
@@ -142,7 +142,7 @@
 
         } catch (error) {
             console.error(error);
-            // ⚠️ เปลี่ยนให้แสดงข้อความ Error ของจริงออกมาบนหน้าจอ
+            // แจ้งเตือน Error
             alert("ระบบล้มเหลว (System Error): " + error.message + "\n\n(หากขึ้นคำว่า 'Failed to fetch' หรือ 'Unexpected token <' แสดงว่าตั้งค่า Deploy หรือ URL ผิดครับ)");
             submitBtn.disabled = false;
             submitBtn.innerText = "ส่งข้อมูล (Submit)";
