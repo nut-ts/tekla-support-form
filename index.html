@@ -11,13 +11,23 @@
         h2 { text-align: center; color: #00b900; }
         label { font-weight: bold; margin-top: 12px; display: block; font-size: 14px; }
         input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background-color: #00b900; color: white; border: none; border-radius: 4px; font-size: 16px; margin-top: 20px; cursor: pointer; font-weight: bold; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        /* ปุ่มส่งข้อมูล */
+        .submit-btn { width: 100%; padding: 12px; background-color: #00b900; color: white; border: none; border-radius: 4px; font-size: 16px; margin-top: 20px; cursor: pointer; font-weight: bold; }
+        .submit-btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        /* สไตล์ปุ่ม Add / Delete File */
+        .add-file-btn { display: inline-block; width: 100%; padding: 10px; margin-top: 5px; background-color: #e9ecef; color: #333; border: 2px dashed #adb5bd; border-radius: 4px; font-size: 14px; text-align: center; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        .add-file-btn:hover { background-color: #dee2e6; }
+        .remove-btn { background: none; border: none; color: #dc3545; font-size: 14px; cursor: pointer; font-weight: bold; padding: 0 5px; }
+        .remove-btn:hover { color: #a11; }
+        
+        #fileListDisplay { font-size: 13px; color: #444; margin-top: 10px; padding-left: 0; list-style: none; }
+        #fileListDisplay li { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 6px 10px; border: 1px solid #eee; margin-bottom: 4px; border-radius: 4px; }
+        .file-name-text { flex: 1; word-break: break-all; padding-right: 10px; }
+        
         #fileSizeInfo { font-size: 13px; margin-top: 5px; line-height: 1.4; }
         .hint-text { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.4; }
-        /* สไตล์สำหรับแสดงรายการไฟล์ */
-        #fileListDisplay { font-size: 13px; color: #444; margin-top: 8px; padding-left: 20px; margin-bottom: 0; }
-        #fileListDisplay li { margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -47,25 +57,28 @@
         <textarea id="issue" rows="4" placeholder="อธิบายรายละเอียดปัญหาที่พบ..." required></textarea>
 
         <label>แนบไฟล์รูปภาพ / เอกสาร / Zip (รวมกันไม่เกิน 10MB)</label>
-        <input type="file" id="fileUpload" accept="image/*, .pdf, .doc, .docx, .zip, .rar" multiple>
+        <!-- ซ่อน input file เดิมไว้ และใช้ปุ่มกดแทน -->
+        <input type="file" id="fileUpload" accept="image/*, .pdf, .doc, .docx, .zip, .rar" multiple style="display: none;">
+        <button type="button" class="add-file-btn" onclick="document.getElementById('fileUpload').click()">📁 กดเพื่อเลือกไฟล์เพิ่ม (Add Files)</button>
+        
+        <!-- รายการไฟล์ที่เลือก -->
+        <ul id="fileListDisplay"></ul>
         <div id="fileSizeInfo"></div>
-        <!-- จุดสำหรับแสดงลำดับชื่อไฟล์ที่เลือก -->
-        <ol id="fileListDisplay"></ol>
 
         <label>หรือ วางลิงก์ไฟล์ (กรณีไฟล์ใหญ่เกิน 10MB)</label>
         <input type="url" id="externalLink" placeholder="วางลิงก์ Google Drive, OneDrive...">
         <div class="hint-text">💡 หากไฟล์เกิน 10MB กรุณาฝากไว้ที่ Google Drive (เปิดสิทธิ์แชร์ลิงก์) แล้วนำลิงก์มาวางในช่องนี้</div>
 
-        <button type="submit" id="submitBtn">ส่งข้อมูล (Submit)</button>
+        <button type="submit" id="submitBtn" class="submit-btn">ส่งข้อมูล (Submit)</button>
     </form>
 </div>
 
 <script>
     const LIFF_ID = "2012561563-OSp0QQl1"; 
-    // อย่าลืมตรวจสอบ GAS_URL ว่าเป็นลิงก์ล่าสุดของคุณ
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzpFUCbCQjyK1pmMf0QRqnNkeoduyB0330q4FZyPnMgb1hsuHrufIXfzTmNBnqSzUE-_A/exec";
-    
     const MAX_FILE_SIZE = 10485760; // 10MB
+    
+    let selectedFiles = []; // อาร์เรย์สำหรับเก็บไฟล์สะสม
 
     async function initializeLiff() {
         try {
@@ -79,40 +92,57 @@
     }
     initializeLiff();
 
-    document.getElementById('fileUpload').addEventListener('change', function() {
-        const fileInfo = document.getElementById('fileSizeInfo');
-        const fileListDisplay = document.getElementById('fileListDisplay');
-        
-        // ล้างรายการเก่าออกทุกครั้งที่เลือกไฟล์ใหม่
-        fileListDisplay.innerHTML = "";
-
-        if (this.files.length > 0) {
-            let totalSize = 0;
-            let listHtml = "";
-
-            // วนลูปอ่านชื่อไฟล์และขนาดแต่ละไฟล์
-            for (let i = 0; i < this.files.length; i++) {
-                let fSizeMB = (this.files[i].size / (1024 * 1024)).toFixed(2);
-                totalSize += this.files[i].size;
-                listHtml += `<li>${this.files[i].name} <span style="color:#888;">(${fSizeMB} MB)</span></li>`;
-            }
-            
-            const sizeInMB = (totalSize / (1024 * 1024)).toFixed(2); 
-            
-            // แสดงชื่อไฟล์ทั้งหมดเป็นลำดับข้อ
-            fileListDisplay.innerHTML = listHtml;
-
-            if (totalSize > MAX_FILE_SIZE) {
-                fileInfo.innerHTML = `❌ ขนาดรวม: <b>${sizeInMB} MB</b> (เกิน 10MB)<br>💡 กรุณานำไฟล์ฝากไว้ที่ <b>Google Drive</b> แล้วนำลิงก์มาวางในช่องด้านล่างแทนครับ`;
-                fileInfo.style.color = "red";
-            } else {
-                fileInfo.innerHTML = `✅ เลือก ${this.files.length} ไฟล์ | ขนาดรวม: <b>${sizeInMB} MB</b> (พร้อมส่ง)`;
-                fileInfo.style.color = "#00b900";
-            }
-        } else {
-            fileInfo.innerHTML = "";
-        }
+    // เมื่อมีการเลือกไฟล์ใหม่ ให้นำมาต่อท้าย (Concat) อาร์เรย์เดิม
+    document.getElementById('fileUpload').addEventListener('change', function(e) {
+        const newFiles = Array.from(e.target.files);
+        selectedFiles = selectedFiles.concat(newFiles);
+        renderFileList();
+        this.value = ''; // เคลียร์ค่า input เพื่อให้สามารถเลือกไฟล์ชื่อเดิมซ้ำได้ถ้าต้องการ
     });
+
+    // ฟังก์ชันวาดรายการไฟล์ และคำนวณขนาด
+    function renderFileList() {
+        const fileListDisplay = document.getElementById('fileListDisplay');
+        const fileInfo = document.getElementById('fileSizeInfo');
+        
+        fileListDisplay.innerHTML = "";
+        let totalSize = 0;
+
+        if (selectedFiles.length === 0) {
+            fileInfo.innerHTML = "";
+            return;
+        }
+
+        selectedFiles.forEach((file, index) => {
+            totalSize += file.size;
+            let fSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            
+            let li = document.createElement('li');
+            li.innerHTML = `
+                <span class="file-name-text">${index + 1}. ${file.name} <span style="color:#888;">(${fSizeMB} MB)</span></span>
+                <button type="button" class="remove-btn" onclick="removeFile(${index})" title="ลบไฟล์นี้">❌ ลบ</button>
+            `;
+            fileListDisplay.appendChild(li);
+        });
+
+        const sizeInMB = (totalSize / (1024 * 1024)).toFixed(2); 
+
+        if (totalSize > MAX_FILE_SIZE) {
+            fileInfo.innerHTML = `❌ ขนาดรวม: <b>${sizeInMB} MB</b> (เกิน 10MB)<br>💡 กรุณาลบไฟล์บางส่วนออก หรือนำไปฝากไว้ที่ Google Drive แทนครับ`;
+            fileInfo.style.color = "red";
+            document.getElementById('submitBtn').disabled = true; // ปิดปุ่มส่งถ้าไฟล์เกิน
+        } else {
+            fileInfo.innerHTML = `✅ รวม ${selectedFiles.length} ไฟล์ | ขนาดรวม: <b>${sizeInMB} MB</b>`;
+            fileInfo.style.color = "#00b900";
+            document.getElementById('submitBtn').disabled = false;
+        }
+    }
+
+    // ฟังก์ชันลบไฟล์เฉพาะเจาะจงออกจากอาร์เรย์
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        renderFileList();
+    }
 
     function getBase64(file) {
         return new Promise((resolve, reject) => {
@@ -131,28 +161,26 @@
         submitBtn.innerText = "กำลังส่งข้อมูล... (อาจใช้เวลาสักครู่)";
 
         try {
-            const fileInput = document.getElementById('fileUpload').files;
             let filesArray = [];
 
-            if (fileInput.length > 0) {
+            if (selectedFiles.length > 0) {
                 let totalSize = 0;
-                for (let i = 0; i < fileInput.length; i++) {
-                    totalSize += fileInput[i].size;
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    totalSize += selectedFiles[i].size;
                 }
 
                 if (totalSize > MAX_FILE_SIZE) {
-                    const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
-                    alert(`ไฟล์ทั้งหมดมีขนาดรวม ${sizeMB} MB ซึ่งเกิน 10MB\n\nกรุณานำไฟล์ฝากไว้ที่ Google Drive (เปิดสิทธิ์แชร์ลิงก์) แล้วนำลิงก์มาวางในช่องด้านล่างแทนครับ`);
+                    alert("ไฟล์รวมกันเกิน 10MB กรุณาลบไฟล์บางส่วนออก");
                     submitBtn.disabled = false;
                     submitBtn.innerText = "ส่งข้อมูล (Submit)";
                     return;
                 }
 
-                for (let i = 0; i < fileInput.length; i++) {
-                    const base64 = await getBase64(fileInput[i]);
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    const base64 = await getBase64(selectedFiles[i]);
                     filesArray.push({
-                        fileName: fileInput[i].name,
-                        fileMimeType: fileInput[i].type || "application/octet-stream",
+                        fileName: selectedFiles[i].name,
+                        fileMimeType: selectedFiles[i].type || "application/octet-stream",
                         fileBase64: base64
                     });
                 }
@@ -178,12 +206,17 @@
 
             if (result.status === "success") {
                 alert("ส่งข้อมูลสำเร็จ! ทางทีม Support จะตรวจสอบและตอบกลับทางอีเมลที่ท่านให้ไว้โดยเร็วที่สุด");
+                // เคลียร์ฟอร์มหลังส่งเสร็จ
+                selectedFiles = [];
+                renderFileList();
+                document.getElementById('supportForm').reset();
                 liff.closeWindow(); 
             } else {
                 alert("เกิดข้อผิดพลาด: " + result.message);
-                submitBtn.disabled = false;
-                submitBtn.innerText = "ส่งข้อมูล (Submit)";
             }
+            
+            submitBtn.disabled = false;
+            submitBtn.innerText = "ส่งข้อมูล (Submit)";
 
         } catch (error) {
             console.error(error);
