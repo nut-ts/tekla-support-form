@@ -44,7 +44,6 @@
 
         <label>แนบไฟล์รูปภาพ / เอกสาร / Zip (ไม่เกิน 25MB)</label>
         <input type="file" id="fileUpload" accept="image/*, .pdf, .doc, .docx, .zip, .rar">
-        <!-- พื้นที่แสดงขนาดไฟล์ -->
         <div id="fileSizeInfo"></div>
 
         <button type="submit" id="submitBtn">ส่งข้อมูล (Submit)</button>
@@ -55,11 +54,12 @@
     // ----------------------------------------------------------------
     // ⚠️ แก้ไข 2 บรรทัดนี้ให้เป็นข้อมูลของคุณ ⚠️
     const LIFF_ID = "ใส่_LIFF_ID_ของคุณ"; 
-    const GAS_URL = "ใส่_URL_WEB_APP_ของคุณ";
+    const GAS_URL = "ใส่_URL_WEB_APP_ของ_GOOGLE_APPS_SCRIPT";
     // ----------------------------------------------------------------
     
-    const MAX_FILE_SIZE = 26214400; // 25MB (25 * 1024 * 1024)
+    const MAX_FILE_SIZE = 26214400; // 25MB (25 * 1024 * 1024 bytes)
 
+    // 1. เริ่มต้น LIFF
     async function initializeLiff() {
         try {
             await liff.init({ liffId: LIFF_ID });
@@ -72,12 +72,12 @@
     }
     initializeLiff();
 
-    // แสดงขนาดไฟล์เมื่อผู้ใช้เลือกไฟล์
+    // 2. แสดงขนาดไฟล์เมื่อเลือกไฟล์
     document.getElementById('fileUpload').addEventListener('change', function() {
         const fileInfo = document.getElementById('fileSizeInfo');
         if (this.files.length > 0) {
             const fileSize = this.files[0].size;
-            const sizeInMB = (fileSize / (1024 * 1024)).toFixed(2); // แปลงเป็น MB
+            const sizeInMB = (fileSize / (1024 * 1024)).toFixed(2); 
             
             if (fileSize > MAX_FILE_SIZE) {
                 fileInfo.innerHTML = `❌ ขนาดไฟล์: <b>${sizeInMB} MB</b> (เกิน 25MB ที่กำหนด)`;
@@ -91,15 +91,7 @@
         }
     });
 
-    function getBase64(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = error => reject(error);
-        });
-    }
-
+    // 3. จัดการเมื่อกดปุ่ม Submit (ใช้ FormData แทน Base64)
     document.getElementById('supportForm').addEventListener('submit', async function(e) {
         e.preventDefault(); 
 
@@ -109,38 +101,32 @@
 
         try {
             const fileInput = document.getElementById('fileUpload').files[0];
-            let fileBase64 = "";
-            let fileName = "";
-            let fileMimeType = "";
 
-            if (fileInput) {
-                // ตรวจสอบขนาดไฟล์ก่อนส่งอีกครั้ง
-                if (fileInput.size > MAX_FILE_SIZE) {
-                    const sizeMB = (fileInput.size / (1024 * 1024)).toFixed(2);
-                    alert(`ขนาดไฟล์ ${sizeMB} MB ใหญ่เกินไป กรุณาแนบไฟล์ไม่เกิน 25MB`);
-                    submitBtn.disabled = false;
-                    submitBtn.innerText = "ส่งข้อมูล (Submit)";
-                    return;
-                }
-                fileBase64 = await getBase64(fileInput);
-                fileName = fileInput.name;
-                fileMimeType = fileInput.type || "application/octet-stream";
+            // ตรวจสอบขนาดไฟล์ก่อนส่ง
+            if (fileInput && fileInput.size > MAX_FILE_SIZE) {
+                const sizeMB = (fileInput.size / (1024 * 1024)).toFixed(2);
+                alert(`ขนาดไฟล์ ${sizeMB} MB ใหญ่เกินไป กรุณาแนบไฟล์ไม่เกิน 25MB`);
+                submitBtn.disabled = false;
+                submitBtn.innerText = "ส่งข้อมูล (Submit)";
+                return;
             }
 
-            const payload = {
-                company: document.getElementById('company').value,
-                name: document.getElementById('name').value,
-                email: document.getElementById('email').value,
-                version: document.getElementById('version').value,
-                issue: document.getElementById('issue').value,
-                fileName: fileName,
-                fileMimeType: fileMimeType,
-                fileBase64: fileBase64
-            };
+            // ใช้ FormData เพื่อส่งไฟล์ดิบๆ (Binary) ข้ามไปให้ Google Apps Script
+            const formData = new FormData();
+            formData.append("company", document.getElementById('company').value);
+            formData.append("name", document.getElementById('name').value);
+            formData.append("email", document.getElementById('email').value);
+            formData.append("version", document.getElementById('version').value);
+            formData.append("issue", document.getElementById('issue').value);
+            
+            if (fileInput) {
+                formData.append("file", fileInput); 
+            }
 
+            // ส่งข้อมูล
             const response = await fetch(GAS_URL, {
                 method: "POST",
-                body: JSON.stringify(payload)
+                body: formData // ส่ง formData ตรงๆ ไม่ต้องแปลง JSON
             });
 
             const result = await response.json();
