@@ -15,6 +15,9 @@
         button:disabled { background-color: #ccc; cursor: not-allowed; }
         #fileSizeInfo { font-size: 13px; margin-top: 5px; line-height: 1.4; }
         .hint-text { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.4; }
+        /* สไตล์สำหรับแสดงรายการไฟล์ */
+        #fileListDisplay { font-size: 13px; color: #444; margin-top: 8px; padding-left: 20px; margin-bottom: 0; }
+        #fileListDisplay li { margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -43,10 +46,11 @@
         <label>รายละเอียดปัญหา (Issue Details)</label>
         <textarea id="issue" rows="4" placeholder="อธิบายรายละเอียดปัญหาที่พบ..." required></textarea>
 
-        <!-- เพิ่ม multiple เพื่อให้เลือกได้หลายไฟล์ -->
         <label>แนบไฟล์รูปภาพ / เอกสาร / Zip (รวมกันไม่เกิน 10MB)</label>
         <input type="file" id="fileUpload" accept="image/*, .pdf, .doc, .docx, .zip, .rar" multiple>
         <div id="fileSizeInfo"></div>
+        <!-- จุดสำหรับแสดงลำดับชื่อไฟล์ที่เลือก -->
+        <ol id="fileListDisplay"></ol>
 
         <label>หรือ วางลิงก์ไฟล์ (กรณีไฟล์ใหญ่เกิน 10MB)</label>
         <input type="url" id="externalLink" placeholder="วางลิงก์ Google Drive, OneDrive...">
@@ -58,7 +62,7 @@
 
 <script>
     const LIFF_ID = "2012561563-OSp0QQl1"; 
-    // ตรวจสอบ URL ล่าสุดของ Web App และใส่ตรงนี้
+    // อย่าลืมตรวจสอบ GAS_URL ว่าเป็นลิงก์ล่าสุดของคุณ
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzpFUCbCQjyK1pmMf0QRqnNkeoduyB0330q4FZyPnMgb1hsuHrufIXfzTmNBnqSzUE-_A/exec";
     
     const MAX_FILE_SIZE = 10485760; // 10MB
@@ -75,16 +79,29 @@
     }
     initializeLiff();
 
-    // คำนวณขนาดรวมของทุกไฟล์ที่เลือก
     document.getElementById('fileUpload').addEventListener('change', function() {
         const fileInfo = document.getElementById('fileSizeInfo');
+        const fileListDisplay = document.getElementById('fileListDisplay');
+        
+        // ล้างรายการเก่าออกทุกครั้งที่เลือกไฟล์ใหม่
+        fileListDisplay.innerHTML = "";
+
         if (this.files.length > 0) {
             let totalSize = 0;
+            let listHtml = "";
+
+            // วนลูปอ่านชื่อไฟล์และขนาดแต่ละไฟล์
             for (let i = 0; i < this.files.length; i++) {
+                let fSizeMB = (this.files[i].size / (1024 * 1024)).toFixed(2);
                 totalSize += this.files[i].size;
+                listHtml += `<li>${this.files[i].name} <span style="color:#888;">(${fSizeMB} MB)</span></li>`;
             }
+            
             const sizeInMB = (totalSize / (1024 * 1024)).toFixed(2); 
             
+            // แสดงชื่อไฟล์ทั้งหมดเป็นลำดับข้อ
+            fileListDisplay.innerHTML = listHtml;
+
             if (totalSize > MAX_FILE_SIZE) {
                 fileInfo.innerHTML = `❌ ขนาดรวม: <b>${sizeInMB} MB</b> (เกิน 10MB)<br>💡 กรุณานำไฟล์ฝากไว้ที่ <b>Google Drive</b> แล้วนำลิงก์มาวางในช่องด้านล่างแทนครับ`;
                 fileInfo.style.color = "red";
@@ -131,7 +148,6 @@
                     return;
                 }
 
-                // วนลูปแปลงทุกไฟล์เป็น Base64
                 for (let i = 0; i < fileInput.length; i++) {
                     const base64 = await getBase64(fileInput[i]);
                     filesArray.push({
@@ -149,7 +165,7 @@
                 version: document.getElementById('version').value,
                 issue: document.getElementById('issue').value,
                 externalLink: document.getElementById('externalLink').value.trim(),
-                files: filesArray // ส่งเป็น Array แทนไฟล์เดียว
+                files: filesArray 
             };
 
             const response = await fetch(GAS_URL, {
