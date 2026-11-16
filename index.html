@@ -142,7 +142,8 @@
 
         } catch (error) {
             console.error(error);
-            alert("ไม่สามารถส่งข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+            // ⚠️ เปลี่ยนให้แสดงข้อความ Error ของจริงออกมาบนหน้าจอ
+            alert("ระบบล้มเหลว (System Error): " + error.message + "\n\n(หากขึ้นคำว่า 'Failed to fetch' หรือ 'Unexpected token <' แสดงว่าตั้งค่า Deploy หรือ URL ผิดครับ)");
             submitBtn.disabled = false;
             submitBtn.innerText = "ส่งข้อมูล (Submit)";
         }
