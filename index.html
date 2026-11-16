@@ -9,11 +9,12 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f7f6; }
         .form-container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
         h2 { text-align: center; color: #00b900; }
-        label { font-weight: bold; margin-top: 10px; display: block; font-size: 14px; }
+        label { font-weight: bold; margin-top: 12px; display: block; font-size: 14px; }
         input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background-color: #00b900; color: white; border: none; border-radius: 4px; font-size: 16px; margin-top: 20px; cursor: pointer; }
+        button { width: 100%; padding: 12px; background-color: #00b900; color: white; border: none; border-radius: 4px; font-size: 16px; margin-top: 20px; cursor: pointer; font-weight: bold; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
         #fileSizeInfo { font-size: 13px; margin-top: 5px; line-height: 1.4; }
+        .hint-text { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -40,11 +41,15 @@
         </select>
 
         <label>รายละเอียดปัญหา (Issue Details)</label>
-        <textarea id="issue" rows="4" placeholder="อธิบายรายละเอียดปัญหา (หากไฟล์เกิน 10MB สามารถนำลิงก์ Google Drive มาวางในช่องนี้ได้)" required></textarea>
+        <textarea id="issue" rows="4" placeholder="อธิบายรายละเอียดปัญหาที่พบ..." required></textarea>
 
         <label>แนบไฟล์รูปภาพ / เอกสาร / Zip (ไม่เกิน 10MB)</label>
         <input type="file" id="fileUpload" accept="image/*, .pdf, .doc, .docx, .zip, .rar">
         <div id="fileSizeInfo"></div>
+
+        <label>หรือ วางลิงก์ไฟล์ (กรณีไฟล์เกิน 10MB)</label>
+        <input type="url" id="externalLink" placeholder="วางลิงก์ Google Drive, OneDrive...">
+        <div class="hint-text">💡 หากไฟล์เกิน 10MB กรุณาฝากไว้ที่ Google Drive (เปิดสิทธิ์แชร์ลิงก์) แล้วนำลิงก์มาวางในช่องนี้</div>
 
         <button type="submit" id="submitBtn">ส่งข้อมูล (Submit)</button>
     </form>
@@ -52,9 +57,9 @@
 
 <script>
     const LIFF_ID = "2012561563-OSp0QQl1"; 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwYrn8HiktCkbC1K_7wy0geC5slEqjtjkHdaOjvJF7-HfyEKBYGzwkiOv0sdHJ9p2i0Yw/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbygmjBdQPEXsExUZJVcFZBjXhoKbY4EcyD3gPmiDUeh_kp1OSZL1az0JDN_3yCf55Mkmw/exec";
     
-    const MAX_FILE_SIZE = 10485760; // 10MB (10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10485760; // 10MB
 
     async function initializeLiff() {
         try {
@@ -68,7 +73,6 @@
     }
     initializeLiff();
 
-    // ตรวจสอบขนาดไฟล์ทันทีเมื่อเลือกไฟล์
     document.getElementById('fileUpload').addEventListener('change', function() {
         const fileInfo = document.getElementById('fileSizeInfo');
         if (this.files.length > 0) {
@@ -76,7 +80,7 @@
             const sizeInMB = (fileSize / (1024 * 1024)).toFixed(2); 
             
             if (fileSize > MAX_FILE_SIZE) {
-                fileInfo.innerHTML = `❌ ขนาดไฟล์: <b>${sizeInMB} MB</b> (เกิน 10MB)<br>💡 <b>คำแนะนำ:</b> กรุณานำไฟล์ฝากไว้ที่ <b>Google Drive</b> (เปิดสิทธิ์แชร์ลิงก์) แล้วนำลิงก์มาวางในช่อง <b>"รายละเอียดปัญหา"</b> แทนครับ`;
+                fileInfo.innerHTML = `❌ ขนาดไฟล์: <b>${sizeInMB} MB</b> (เกิน 10MB)<br>💡 กรุณานำไฟล์ฝากไว้ที่ <b>Google Drive</b> แล้วนำลิงก์มาวางในช่องด้านล่างแทนครับ`;
                 fileInfo.style.color = "red";
             } else {
                 fileInfo.innerHTML = `✅ ขนาดไฟล์: <b>${sizeInMB} MB</b> (พร้อมส่ง)`;
@@ -110,10 +114,9 @@
             let fileMimeType = "";
 
             if (fileInput) {
-                // แจ้งเตือนหากเผลอกดส่งทั้งที่ไฟล์เกิน 10MB
                 if (fileInput.size > MAX_FILE_SIZE) {
                     const sizeMB = (fileInput.size / (1024 * 1024)).toFixed(2);
-                    alert(`ไฟล์มีขนาด ${sizeMB} MB ซึ่งเกิน 10MB ที่ระบบรองรับ\n\nกรุณานำไฟล์ฝากไว้ที่ Google Drive (เปิดสิทธิ์แชร์ลิงก์) แล้วนำลิงก์มาวางในช่อง "รายละเอียดปัญหา" เพื่อส่งให้ทีม Support แทนครับ`);
+                    alert(`ไฟล์มีขนาด ${sizeMB} MB ซึ่งเกิน 10MB\n\nกรุณานำไฟล์ฝากไว้ที่ Google Drive (เปิดสิทธิ์แชร์ลิงก์) แล้วนำลิงก์มาวางในช่องด้านล่างแทนครับ`);
                     submitBtn.disabled = false;
                     submitBtn.innerText = "ส่งข้อมูล (Submit)";
                     return;
@@ -129,6 +132,7 @@
                 email: document.getElementById('email').value,
                 version: document.getElementById('version').value,
                 issue: document.getElementById('issue').value,
+                externalLink: document.getElementById('externalLink').value.trim(),
                 fileName: fileName,
                 fileMimeType: fileMimeType,
                 fileBase64: fileBase64
